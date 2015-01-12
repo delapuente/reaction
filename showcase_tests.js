@@ -83,7 +83,7 @@ describe('The reaction library', function () {
       expect(character.damageLoss).toBe(1.3);
     });
 
-    it('accept Math library', function () {
+    it('accepts built-in Math library', function () {
       character.reactive('visibility');
 
       character.con = 10;
@@ -94,7 +94,7 @@ describe('The reaction library', function () {
       expect(character.visibility).toBe(12);
     });
 
-    it('accept Date library', function () {
+    it('accepts built-in Date type ', function () {
       character.reactive('date');
 
       character.month = 1;

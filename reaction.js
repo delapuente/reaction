@@ -36,15 +36,15 @@
     return Object.keys(this._dependencies[name] || Object.create(null));
   };
 
-  var libraries = {
+  var builtins = {
     'Math': Math,
     'Date': Date
   };
-  libraries.isLibrary = function (name) {
-    return libraries[name] instanceof Object;
+  builtins.isBuiltin = function (name) {
+    return builtins[name] instanceof Object;
   };
-  libraries.get = function (name) {
-    return libraries[name];
+  builtins.get = function (name) {
+    return builtins[name];
   };
 
   var keywords = [
@@ -59,7 +59,7 @@
     context.reactive = function () {
       [].forEach.call(arguments, function (property) {
           definitions[property] = definitions[property] || {
-            definition: JSON.stringify(context[property]),
+            definition: undefined,
             value: context[property]
           };
           Object.defineProperty(context, property, {
@@ -85,8 +85,8 @@
   }
 
   function update(property, newDefinition, definitions, dependencies, context) {
-    if (typeof newDefinition !== 'string') {
-      newDefinition = JSON.stringify(newDefinition);
+    if (typeof newDefinition === 'number') {
+      newDefinition = '' + newDefinition;
     }
     var localDependencies = extractDependencies(newDefinition);
     context.reactive.apply(context, localDependencies);
@@ -107,8 +107,8 @@
   function computeValue(property, definitions, dependencies) {
     var formalList = dependencies.getDependenciesFor(property);
     var actualList = formalList.map(function (parameterName) {
-      return libraries.isLibrary(parameterName) ?
-             libraries.get(parameterName) :
+      return builtins.isBuiltin(parameterName) ?
+             builtins.get(parameterName) :
              definitions[parameterName].value;
     });
     var definition = definitions[property].definition;
