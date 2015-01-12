@@ -1,0 +1,31 @@
+{
+  "name": "reaction",
+  "main": "reaction.js",
+  "version": "0.1.0",
+  "authors": [
+    "Salvador de la Puente <salva@unoyunodiez.com>"
+  ],
+  "description": "Reaction gives reactive properties to regular JavaScript objects",
+  "moduleType": [
+    "amd",
+    "globals",
+    "node"
+  ],
+  "keywords": [
+    "reactive",
+    "spreadsheet",
+    "cascade"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/lodr/reaction",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "devDependencies": {
+    "jasmine": "~2.1.3"
+  }
+}
