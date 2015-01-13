@@ -56,42 +56,57 @@
     var definitions = {};
     var dependencies = new DependencyMap();
 
-    context.reactive = function () {
-      [].forEach.call(arguments, function (property) {
-          definitions[property] = definitions[property] || {
-            definition: undefined,
-            value: context[property]
-          };
-          Object.defineProperty(context, property, {
-            configurable: true,
-            enumerable: true,
-            set: function (newDefinition) {
-              update(
-                property,
-                newDefinition,
-                definitions,
-                dependencies,
-                context
-              );
-            },
-            get: function () {
-              return definitions[property].value;
-            }
-          });
-      });
-    };
-
+    Object.defineProperty(context, 'reactive', {
+      enumerable: false,
+      value: function () {
+        var varlist = [].slice.call(arguments);
+        var options = {};
+        if (typeof varlist[varlist.length - 1] === 'object') {
+          options = varlist.pop();
+        }
+        varlist.forEach(function (property) {
+            definitions[property] = definitions[property] || {
+              definition: undefined,
+              value: context[property]
+            };
+            definitions[property].reactive =
+              definitions[property].reactive || !options.monitorOnly;
+            Object.defineProperty(context, property, {
+              configurable: true,
+              enumerable: true,
+              set: function (newDefinition) {
+                update(
+                  property,
+                  newDefinition,
+                  definitions,
+                  dependencies,
+                  context
+                );
+              },
+              get: function () {
+                return definitions[property].value;
+              }
+            });
+        });
+      }
+    });
     return context;
   }
 
   function update(property, newDefinition, definitions, dependencies, context) {
-    if (typeof newDefinition === 'number') {
-      newDefinition = '' + newDefinition;
+    if (definitions[property].reactive) {
+      if (typeof newDefinition === 'number') {
+        newDefinition = '' + newDefinition;
+      }
+      var localDependencies = extractDependencies(newDefinition);
+      var args = localDependencies.concat([{ monitorOnly: true  }]);
+      context.reactive.apply(context, args);
+      dependencies.addDependencies(property, localDependencies);
+      definitions[property].definition = newDefinition;
     }
-    var localDependencies = extractDependencies(newDefinition);
-    context.reactive.apply(context, localDependencies);
-    dependencies.addDependencies(property, localDependencies);
-    definitions[property].definition = newDefinition;
+    else {
+      definitions[property].value = newDefinition;
+    }
     compute(property, definitions, dependencies);
   }
 
@@ -105,25 +120,34 @@
   }
 
   function computeValue(property, definitions, dependencies) {
-    var formalList = dependencies.getDependenciesFor(property);
-    var actualList = formalList.map(function (parameterName) {
-      return builtins.isBuiltin(parameterName) ?
-             builtins.get(parameterName) :
-             definitions[parameterName].value;
-    });
-    var definition = definitions[property].definition;
-    var code = '"use strict";\nreturn (' + definition + ');';
-    var evaluator = new Function(formalList.join(','), code);
-    return evaluator.apply(undefined, actualList);
+    var result;
+    if (!definitions[property].reactive) {
+      result = definitions[property].value;
+    }
+    else {
+      var formalList = dependencies.getDependenciesFor(property);
+      var actualList = formalList.map(function (parameterName) {
+        return builtins.isBuiltin(parameterName) ?
+               builtins.get(parameterName) :
+               definitions[parameterName].value;
+      });
+      var definition = definitions[property].definition;
+      var code = '"use strict";\nreturn (' + definition + ');';
+      var evaluator = new Function(formalList.join(','), code);
+      result = evaluator.apply(undefined, actualList);
+    }
+    return result;
   }
 
   function extractDependencies(code) {
     var dependencies = [];
-    var identifier = /(?:^|[^.])([_$a-zA-Z][_$\w]*)/g;
+    var identifier = /(\.\s*?)?([_$a-zA-Z][_$\w]*)/g;
     var match = identifier.exec(code);
     while (match) {
-      if (keywords.indexOf(match[1]) === -1) {
-        dependencies.push(match[1]);
+      var point = match[1];
+      var name = match[2];
+      if (!point && keywords.indexOf(name) === -1) {
+        dependencies.push(name);
       }
       match = identifier.exec(code);
     }

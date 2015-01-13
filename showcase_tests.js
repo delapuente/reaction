@@ -18,6 +18,21 @@ describe('The reaction library', function () {
       expect(character).toEqual(jasmine.any(Object));
     });
 
+    it('can mix reactive and non reactive properties ', function () {
+      character.reactive('completeName');
+
+      character.name = 'Howard P.';
+      character.surname = 'Lovecraft';
+
+      character.completeName = 'name + " " + surname';
+
+      expect(character.completeName).toBe('Howard P. Lovecraft');
+
+      character.name = 'H.P.';
+
+      expect(character.completeName).toBe('H.P. Lovecraft');
+    });
+
     it('allow to declare reactive properties', function () {
       character.reactive('hp');
       character.hp = '(con + siz)/2';
@@ -104,6 +119,36 @@ describe('The reaction library', function () {
       character.date = 'new Date(year, month-1, day)';
 
       expect(+character.date).toEqual(+(new Date(12,0,5)));
+    });
+
+    describe('Dependency recognition', function () {
+      it('declares found dependencies as new object properties', function () {
+        character.reactive('r');
+
+        character.r = 'a + b';
+
+        var keys = Object.keys(character);
+        expect(keys).toContain('r');
+        expect(keys).toContain('a');
+        expect(keys).toContain('b');
+        expect(keys.length).toBe(3);
+      });
+
+      it('differentiate between identifiers and object properties', function () {
+        character.reactive('r');
+
+        character.a = { c: 0 };
+        character.b = { d: 0 };
+        character.r = 'a.c + b. d';
+
+        var keys = Object.keys(character);
+        expect(keys).toContain('r');
+        expect(keys).toContain('a');
+        expect(keys).toContain('b');
+        expect(keys).not.toContain('c');
+        expect(keys).not.toContain('d');
+        expect(keys.length).toBe(3);
+      });
     });
   });
 
