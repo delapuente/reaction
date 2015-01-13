@@ -13,6 +13,7 @@
   }
 }(this, function () {
   'use strict';
+  var undefined = void 0;
 
   function DependencyMap() {
     this._dependencies = Object.create(null);
@@ -20,12 +21,24 @@
   }
 
   DependencyMap.prototype.addDependencies = function (name, dependencies) {
+    this._checkDependencies(name, dependencies);
     this._dependencies[name] = this._dependencies[name] || Object.create(null);
     dependencies.forEach(function (dependency) {
       this._dependencies[name][dependency] = true;
       this._affected[dependency] = this._affected[dependency] || {};
       this._affected[dependency][name] = true;
     }.bind(this));
+  };
+
+  DependencyMap.prototype._checkDependencies = function (goal, dependencies) {
+    dependencies.forEach(function (dependency) {
+      if (dependency === goal) {
+        throw new Error(
+          'Cycle detected between "' + goal + '" and "' + dependency + '"'
+        );
+      }
+      this._checkDependencies(goal, this.getDependenciesFor(dependency));
+    }, this);
   };
 
   DependencyMap.prototype.getAffectedBy = function (name) {
@@ -48,59 +61,91 @@
   };
 
   var keywords = [
-    'new'
+    'new',
+    'function',
+    'return'
   ];
+
+  function serialize(value) {
+    var serialization = 'void 0';
+    try {
+      serialization = JSON.stringify(value);
+    } catch (e) { }
+    if (serialization === undefined && value !== undefined) {
+      switch (value.contructor) {
+        case Function:
+          serialization = value.toString();
+          break;
+        case Date:
+          serialization = 'new Date(' + (+value) + ')';
+          break;
+      }
+    }
+    else {
+      serialization = 'void 0';
+    }
+    return serialization;
+  }
 
   function reaction(context) {
     context = context || {};
     var definitions = {};
     var dependencies = new DependencyMap();
 
-    Object.defineProperty(context, 'reactive', {
-      enumerable: false,
-      value: function () {
-        var varlist = [].slice.call(arguments);
-        var options = {};
-        if (typeof varlist[varlist.length - 1] === 'object') {
-          options = varlist.pop();
-        }
-        varlist.forEach(function (property) {
-            definitions[property] = definitions[property] || {
-              definition: undefined,
-              value: context[property]
-            };
-            definitions[property].reactive =
-              definitions[property].reactive || !options.monitorOnly;
-            Object.defineProperty(context, property, {
-              configurable: true,
-              enumerable: true,
-              set: function (newDefinition) {
-                update(
-                  property,
-                  newDefinition,
-                  definitions,
-                  dependencies,
-                  context
-                );
-              },
-              get: function () {
-                return definitions[property].value;
-              }
-            });
-        });
+    function declarator() {
+      var varlist = [].slice.call(arguments);
+      var options = {};
+      if (typeof varlist[varlist.length - 1] === 'object') {
+        options = varlist.pop();
       }
-    });
-    return context;
+      varlist.forEach(function (property) {
+          var wasPresent = Object.keys(context).indexOf(property) > -1;
+          var wasReactive =
+            definitions[property] && definitions[property].reactive;
+
+          definitions[property] = definitions[property] || {
+            definition: options.monitorOnly ?
+                        undefined : serialize(context[property]),
+            value: context[property]
+          };
+          definitions[property].reactive =
+            definitions[property].reactive || !options.monitorOnly;
+          Object.defineProperty(context, property, {
+            configurable: true,
+            enumerable: true,
+            set: function (newDefinition) {
+              update(
+                property,
+                newDefinition,
+                definitions,
+                dependencies,
+                context,
+                declarator
+              );
+            },
+            get: function () {
+              return definitions[property].value;
+            }
+          });
+          if (wasPresent && !wasReactive) {
+            context[property] = definitions[property].value;
+          }
+      });
+    }
+
+    Object.defineProperty(declarator, 'context', { value: context });
+
+    return declarator;
   }
 
-  function update(property, newDefinition, definitions, dependencies, context) {
+  function update(property, newDefinition, definitions, dependencies, context, declarator) {
     if (definitions[property].reactive) {
       if (typeof newDefinition === 'number') {
         newDefinition = '' + newDefinition;
       }
       var localDependencies = extractDependencies(newDefinition);
       var args = localDependencies.concat([{ monitorOnly: true  }]);
-      context.reactive.apply(context, args);
+      declarator.apply(context, args);
       dependencies.addDependencies(property, localDependencies);
       definitions[property].definition = newDefinition;
     }
@@ -140,6 +185,7 @@
   }
 
   function extractDependencies(code) {
+    code = removeFunctionDetails(code);
     var dependencies = [];
     var identifier = /(\.\s*?)?([_$a-zA-Z][_$\w]*)/g;
     var match = identifier.exec(code);
@@ -152,6 +198,13 @@
       match = identifier.exec(code);
     }
     return dependencies;
+  }
+
+  function removeFunctionDetails(code) {
+    var nameAndArgs = /(function)(.*)(\{)/g;
+    return code.replace(nameAndArgs, function (all, fn, nameAndArgs, bracket) {
+      return fn + ' () ' + bracket;
+    });
   }
 
   return reaction;

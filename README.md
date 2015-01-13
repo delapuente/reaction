@@ -8,13 +8,14 @@ Reaction is a JavaScript library to allow reactive properties for simple JavaScr
 You can create a reactive object by including the reaction library and calling the `reaction` function.
 
 ```javascript
-var character = reaction();
+var character = {};
+var makeReactive = reaction(character);
 ```
 
-To prepare the object to deal with reactive properties, you need to declare them this way:
+To declare a property to be reactive inside your object, use the declaration function returned by the `reaction()` call:
 
 ```javascript
-character.reactive('vitality');
+makeReactive('vitality');
 ```
 
 Now you can assing fragments of JavaScript referring other object's properties such as:
@@ -43,7 +44,5 @@ Then open the `index.html` file.
 ## Limitations
 
 Here is a list of features we actually lack of:
-  * Circular dependency 
-  * Improved identifier recognition to fully support JavaScript syntax
   * More builting types
   * Functions from popular spreadsheet software.

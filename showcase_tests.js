@@ -1,25 +1,47 @@
 
 describe('The reaction library', function () {
 
-  var character;
+  var makeReactive, character;
 
   beforeEach(function () {
-    character = reaction();
+    character = {};
+    makeReactive = reaction(character);
   });
 
   describe('The reaction function', function () {
-    it('creates a reactive object', function () {
-      expect(character).toBeDefined();
+    it('creates a declaration function to declare reactive properties',
+    function () {
+      expect(makeReactive).toEqual(jasmine.any(Function));
     });
   });
 
-  describe('The reaction object', function () {
+  describe('The declaration function', function () {
+    it('has a reference to the reactive object', function () {
+      expect(makeReactive.context).toBe(character);
+    });
+
+    it('accepts non empty objects', function () {
+      var anotherCharacter = {
+        con: 10,
+        siz: 12,
+        hp: '(con + siz)/2'
+      };
+      var makeReactive = reaction(anotherCharacter);
+
+      makeReactive('hp');
+
+      expect(anotherCharacter.hp).toBe(11);
+    });
+
+  });
+
+  describe('The reactive object', function () {
     it('is a regular JavaScript object', function () {
       expect(character).toEqual(jasmine.any(Object));
     });
 
     it('can mix reactive and non reactive properties ', function () {
-      character.reactive('completeName');
+      makeReactive('completeName');
 
       character.name = 'Howard P.';
       character.surname = 'Lovecraft';
@@ -34,7 +56,7 @@ describe('The reaction library', function () {
     });
 
     it('allow to declare reactive properties', function () {
-      character.reactive('hp');
+      makeReactive('hp');
       character.hp = '(con + siz)/2';
 
       character.con = 10;
@@ -44,7 +66,7 @@ describe('The reaction library', function () {
     });
 
     it('allow to declare multiple reactive properties', function () {
-      character.reactive('hp', 'idea');
+      makeReactive('hp', 'idea');
       character.hp = '(con + siz)/2';
       character.idea = 'edu * 5';
 
@@ -57,7 +79,7 @@ describe('The reaction library', function () {
     });
 
     it('does not take into account the order of updates', function () {
-      character.reactive('hp', 'idea');
+      makeReactive('hp', 'idea');
 
       character.con = 10;
       character.siz = 12;
@@ -71,7 +93,7 @@ describe('The reaction library', function () {
     });
 
     it('allow cascading', function () {
-      character.reactive('hp', 'damageLoss');
+      makeReactive('hp', 'damageLoss');
 
       character.con = 10;
       character.siz = 12;
@@ -84,7 +106,7 @@ describe('The reaction library', function () {
     });
 
     it('react upon further changes', function () {
-      character.reactive('hp', 'damageLoss');
+      makeReactive('hp', 'damageLoss');
 
       character.con = 10;
       character.siz = 12;
@@ -99,7 +121,7 @@ describe('The reaction library', function () {
     });
 
     it('accepts built-in Math library', function () {
-      character.reactive('visibility');
+      makeReactive('visibility');
 
       character.con = 10;
       character.siz = 12;
@@ -110,7 +132,7 @@ describe('The reaction library', function () {
     });
 
     it('accepts built-in Date type ', function () {
-      character.reactive('date');
+      makeReactive('date');
 
       character.month = 1;
       character.year = 12;
@@ -121,9 +143,54 @@ describe('The reaction library', function () {
       expect(+character.date).toEqual(+(new Date(12,0,5)));
     });
 
+    it('accepts reactive functions', function () {
+      makeReactive('hp');
+
+      character.hp = 'function () { return (con + siz)/2; }';
+
+      character.con = 10;
+      character.siz = 12;
+
+      expect(character.hp).toEqual(jasmine.any(Function));
+      expect(character.hp()).toBe(11);
+    });
+
     describe('Dependency recognition', function () {
+      it('detect and forbid simple cycles', function () {
+        makeReactive('mood', 'humor');
+
+        function makeCycle() {
+          character.mood = 'humor';
+          character.humor = 'mood';
+        }
+
+        expect(makeCycle).toThrowError(/cycle detected/i);
+      });
+
+      it('detect and forbid complex cycles', function () {
+        makeReactive('mood', 'humor', 'intermediate');
+
+        function makeCycle() {
+          character.mood = 'humor';
+          character.intermediate = 'mood';
+          character.humor = 'intermediate';
+        }
+
+        expect(makeCycle).toThrowError(/cycle detected/i);
+      });
+
+      it('detect and forbid auto-cycles', function () {
+        makeReactive('mood');
+
+        function makeCycle() {
+          character.mood = 'mood';
+        }
+
+        expect(makeCycle).toThrowError(/cycle detected/i);
+      });
+
       it('declares found dependencies as new object properties', function () {
-        character.reactive('r');
+        makeReactive('r');
 
         character.r = 'a + b';
 
@@ -135,7 +202,7 @@ describe('The reaction library', function () {
       });
 
       it('differentiate between identifiers and object properties', function () {
-        character.reactive('r');
+        makeReactive('r');
 
         character.a = { c: 0 };
         character.b = { d: 0 };
@@ -149,6 +216,23 @@ describe('The reaction library', function () {
         expect(keys).not.toContain('d');
         expect(keys.length).toBe(3);
       });
+
+      it('ignores names of function names and inside argument lists',
+      function () {
+        makeReactive('hp');
+
+        character.hp = 'function f (a, b) { return (con + siz)/2; }';
+
+        var keys = Object.keys(character);
+        expect(keys).toContain('con');
+        expect(keys).toContain('siz');
+        expect(keys).toContain('hp');
+        expect(keys).not.toContain('a');
+        expect(keys).not.toContain('b');
+        expect(keys).not.toContain('f');
+        expect(keys.length).toBe(3);
+      });
+
     });
   });
 
