@@ -1,7 +1,7 @@
 {
   "name": "reaction",
   "main": "reaction.js",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "authors": [
     "Salvador de la Puente <salva@unoyunodiez.com>"
   ],
