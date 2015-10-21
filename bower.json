@@ -1,7 +1,7 @@
 {
   "name": "reaction",
   "main": "reaction.js",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "authors": [
     "Salvador de la Puente <salva@unoyunodiez.com>"
   ],
@@ -17,7 +17,7 @@
     "cascade"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/lodr/reaction",
+  "homepage": "https://github.com/delapuente/reaction",
   "ignore": [
     "**/.*",
     "node_modules",
